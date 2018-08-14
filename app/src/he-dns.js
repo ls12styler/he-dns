@@ -8,77 +8,80 @@ const KEY = process.env.KEY || null;
 if (KEY === null) {
 	throw new Error("No KEY provided");
 }
-const POLL_MS = process.env.POLL_MS || 300000;
-const TIMEOUT_MS = process.env.TIMEOUT_MS || 1000;
+const POLL_MS = Number(process.env.POLL_MS) || 300000;
+const TIMEOUT_MS = Number(process.env.TIMEOUT_MS) || 1000;
 
 const axios = require("axios");
 const qs = require("querystring");
-let lastIp = null;
+const interval = require("interval-promise");
 
 const ipifyUrl = "https://api.ipify.org?format=json";
+const heUrl = "https://dyn.dns.he.net/nic/update";
 
-const getIpAddress = async function(url) {
-	log("Fetching external IP");
+const getIpAddress = async function(url, timeout) {
 	try {
-		const response = await axios.get(
-			url,
-			{},
-			{
-				timeout: 1000
-			}
-		);
+		log(`Fetching external IP, with a timeout of ${timeout}ms`);
+		const request = axios.create({
+			timeout: timeout
+		});
+		const response = await request.get(url);
 		log("External IP found");
 		return response.data.ip;
-	} catch (error) {
-		log(error);
+	} catch (e) {
+		throw new Error("Could not detect external IP: " + e.message);
 	}
 }
 
-const heUrl = "https://dyn.dns.he.net/nic/update";
-
-const updateIpAddress = async function(ip) {
-	if (ip == lastIp) {
-		log("Not updating IP - not changed");
-		return;
-	}
-	log("IP has changed");
-	log("Attempting to update IP");
+const updateIpAddress = async function(url, domain, key, ip, timeout) {
 	try {
-		const response = await axios.post(
-			heUrl,
+		log(`Updating IP address for ${domain}, with a timeout of ${timeout}ms`);
+		const request = axios.create({
+			timeout: TIMEOUT_MS
+		});
+		const response = await request.post(
+			url,
 			qs.stringify({
-				hostname: DOMAIN,
-				password: KEY,
+				hostname: domain,
+				password: key,
 				myip: ip
-			}),
-			{
-				timeout: 1000
-			}
+			})
 		);
 
 		if (response.status !== 200) {
-			throw new Error(response.data);
+			throw new Error("Bad response from server: " + response.data);
 		}
 		let result = response.data.split(" ");
 		if (result[0] !== "good") {
 			log(response.data);
 		}
-
 		log("Update successful");
+		return true;
 	} catch (e) {
-		log(e);
+		throw new Error("Could not update IP: " + e.message);
 	}
-	lastIp = ip;
 }
 
 const log = (thing) => {
 	let date = new Date();
-	let time = date.toUTCString();
+	let time = date.toISOString();
 	console.log(`[${time}]`, thing)
 }
 
+let lastIp = null;
 log(`Starting updater. Poll frequency: ${POLL_MS}ms`);
-setInterval(() => {
-	getIpAddress(ipifyUrl)
-		.then(updateIpAddress);
-}, POLL_MS);
+interval(async () => {
+	try {
+		let newIp = await getIpAddress(ipifyUrl, TIMEOUT_MS);
+		if (newIp == lastIp) {
+			log("Not updating IP. No change");
+			return true;
+		}
+		log("IP has changed.");
+		let result = await updateIpAddress(heUrl, DOMAIN, KEY, newIp, TIMEOUT_MS);
+		lastIp = newIp;
+		return true;
+	} catch (e) {
+		log(e.message);
+		throw e;
+	}
+}, POLL_MS, {stopOnError: false});

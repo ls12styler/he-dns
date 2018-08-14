@@ -4,4 +4,4 @@ COPY app/ /app
 WORKDIR /app
 RUN npm i
 
-CMD ["/app/run.sh"]
+ENTRYPOINT ["/app/run.sh"]
