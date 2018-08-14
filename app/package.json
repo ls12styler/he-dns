@@ -1,0 +1,16 @@
+{
+  "name": "he-dns",
+  "version": "1.0.0",
+  "description": "DynDNS updater for https://dns.he.net/",
+  "main": "src/he-dns.js",
+  "dependencies": {
+    "axios": "^0.18.0",
+    "querystring": "^0.2.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "test"
+  },
+  "author": "",
+  "license": "ISC"
+}
