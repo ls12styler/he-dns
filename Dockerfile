@@ -2,6 +2,6 @@ FROM node:alpine
 
 COPY app/ /app
 WORKDIR /app
-RUN npm i
+RUN rm -rf node_modules && npm i
 
 ENTRYPOINT ["/app/run.sh"]
