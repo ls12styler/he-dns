@@ -41,3 +41,8 @@ docker run -d -t --rm \
   $IMG
 ```
 (Where $IMG is the ID of the built container from `docker build .`).
+
+## TODO's
+
+- Tests! (probably with a bit of a refactor to make it more testable)
+- Take into account all responses from the API (which is based off https://help.dyn.com/remote-access-api/)
